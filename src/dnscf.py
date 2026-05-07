@@ -192,7 +192,7 @@ def parse_ip_addresses(ip_str):
         ip_str: IP 字符串或 HTML 页面内容
 
     Returns:
-        list: 有效 IP 地址列表，失败返回 None
+        list: 有效 IP 地址列表（已去重），失败返回 None
     """
     if not ip_str:
         print("错误: 缺少必要的参数 (ip_str)")
@@ -221,8 +221,18 @@ def parse_ip_addresses(ip_str):
         print("错误: 未解析到有效 IP 地址")
         return None
 
-    print(f"解析到 {len(valid_ips)} 个有效 IP 地址")
-    return valid_ips
+    # 去重处理：保持顺序的同时去除重复 IP
+    # 使用 dict.fromkeys() 利用 Python 3.7+ 字典保持插入顺序的特性
+    # 这比使用 set 更高效且能保持原始顺序
+    unique_valid_ips = list(dict.fromkeys(valid_ips))
+
+    # 记录去重信息
+    duplicate_count = len(valid_ips) - len(unique_valid_ips)
+    if duplicate_count > 0:
+        print(f"去重处理: 去除 {duplicate_count} 个重复 IP")
+
+    print(f"解析到 {len(unique_valid_ips)} 个有效 IP 地址")
+    return unique_valid_ips
 
 def get_dns_records(name):
     """
