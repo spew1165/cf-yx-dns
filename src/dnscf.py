@@ -115,7 +115,9 @@ def _extract_potential_ips(text):
         if candidate not in seen:
             seen.add(candidate)
             unique_candidates.append(candidate)
-
+    print(f"原始候选 IP 数量: {len(candidates)}")
+    for index, candidate in enumerate(unique_candidates):
+        print(f"{index}: {candidate}")
     return unique_candidates
 
 
