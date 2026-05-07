@@ -5,8 +5,9 @@ Cloudflare DNS 更新器
 获取优选 IP 并更新 Cloudflare DNS 记录
 """
 
-from asyncio import current_task
+import ipaddress
 import json
+import re
 import traceback
 import time
 import os
@@ -61,26 +62,106 @@ def get_cf_speed_test_ip(timeout=10, max_retries=5):
                 traceback.print_exc()
     return None
 
-# 解析优选 IP
-def parse_ip_addresses(ip_str):
+def _is_valid_ip(ip_str):
     """
-    解析优选 IP 字符串，提取 IP 地址
+    验证单个 IP 地址是否为有效的 IPv4 或 IPv6 地址
 
     Args:
-        ip_str: 优选 IP 字符串，格式为 "IP:IP:IP:IP"
+        ip_str: IP 地址字符串
 
     Returns:
-        IP 地址字符串，失败返回 None
+        bool: 是否为有效 IP 地址
+    """
+    try:
+        ipaddress.ip_address(ip_str)
+        return True
+    except ValueError:
+        return False
+
+
+def _extract_potential_ips(text):
+    """
+    从文本中提取可能的 IP 地址候选（包括 HTML 页面）
+
+    支持 IPv4 和 IPv6 格式识别。
+
+    Args:
+        text: 任意文本字符串（可以是纯 IP 列表或 HTML 页面）
+
+    Returns:
+        list: IP 地址候选列表
+    """
+    # 方法1: 使用正则提取 IPv4 和 IPv6 候选
+    candidates = []
+
+    # IPv4 正则（宽松匹配）
+    ipv4_pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
+    candidates.extend(re.findall(ipv4_pattern, text))
+
+    # 为了更好的 IPv6 支持，先尝试传统分割法，
+    # 再用正则作为补充
+    if ',' in text or '\n' in text:
+        normalized = text.replace('\n', ',')
+        split_candidates = [x.strip() for x in normalized.split(',') if x.strip()]
+        # 补充正则没匹配到的候选（主要是完整 IPv6）
+        for candidate in split_candidates:
+            if ':' in candidate and candidate not in candidates:
+                candidates.append(candidate)
+
+    # 去重但保持顺序
+    seen = set()
+    unique_candidates = []
+    for candidate in candidates:
+        if candidate not in seen:
+            seen.add(candidate)
+            unique_candidates.append(candidate)
+
+    return unique_candidates
+
+
+def parse_ip_addresses(ip_str):
+    """
+    解析优选 IP 字符串或 HTML 页面，提取有效 IP 地址
+
+    支持多种输入格式：
+    - 纯 IP 列表（逗号/换行分隔）
+    - 包含 IP 的 HTML 页面
+
+    Args:
+        ip_str: IP 字符串或 HTML 页面内容
+
+    Returns:
+        list: 有效 IP 地址列表，失败返回 None
     """
     if not ip_str:
         print("错误: 缺少必要的参数 (ip_str)")
         return None
-    ip_addresses = [ip.strip() for ip in ip_str.split(',') if ip.strip()]
-    if not ip_addresses:
+
+    potential_ips = _extract_potential_ips(ip_str)
+
+    if not potential_ips:
         print("错误: 未解析到有效 IP 地址")
         return None
-    print(f"解析到 {len(ip_addresses)} 个 IP 地址")
-    return ip_addresses
+
+    valid_ips = []
+    invalid_ips = []
+
+    for ip in potential_ips:
+        if _is_valid_ip(ip):
+            valid_ips.append(ip)
+        else:
+            invalid_ips.append(ip)
+
+    if invalid_ips:
+        print(f"警告: 过滤掉 {len(invalid_ips)} 个无效 IP: {invalid_ips[:5]}"
+            f"{'...' if len(invalid_ips) > 5 else ''}")
+
+    if not valid_ips:
+        print("错误: 未解析到有效 IP 地址")
+        return None
+
+    print(f"解析到 {len(valid_ips)} 个有效 IP 地址")
+    return valid_ips
 
 def get_dns_records(name):
     """
@@ -247,23 +328,26 @@ def main():
         print("错误: 未解析到有效 IP 地址")
         return
 
-    # 获取 DNS 记录
-    dns_records = get_dns_records(CF_DNS_NAME) or []
-    # 更新 DNS 记录
-    push_plus_content = []
-    # 删除之前存在的 DNS 记录
-    for index, ip_address in enumerate(dns_records):
-        dns = del_dns_record(dns_records[index]['id'])
-
-    # 新增 新获取的 DNS 记录
     for index, ip_address in enumerate(ip_addresses):
-        dns = add_dns_record(CF_DNS_NAME, ip_address)
-        push_plus_content.append(dns)
+        print(f"{index}: {ip_address}")
 
-    # 发送推送
-    if push_plus_content:
-        print(push_plus_content)
-        push_plus('\n'.join(push_plus_content))
+    # # 获取 DNS 记录
+    # dns_records = get_dns_records(CF_DNS_NAME) or []
+    # # 更新 DNS 记录
+    # push_plus_content = []
+    # # 删除之前存在的 DNS 记录
+    # for index, ip_address in enumerate(dns_records):
+    #     dns = del_dns_record(dns_records[index]['id'])
+
+    # # 新增 新获取的 DNS 记录
+    # for index, ip_address in enumerate(ip_addresses):
+    #     dns = add_dns_record(CF_DNS_NAME, ip_address)
+    #     push_plus_content.append(dns)
+
+    # # 发送推送
+    # if push_plus_content:
+    #     print(push_plus_content)
+    #     push_plus('\n'.join(push_plus_content))
 
 if __name__ == '__main__':
     main()
