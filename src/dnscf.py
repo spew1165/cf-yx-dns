@@ -213,10 +213,6 @@ def parse_ip_addresses(ip_str):
         else:
             invalid_ips.append(ip)
 
-    if invalid_ips:
-        print(f"警告: 过滤掉 {len(invalid_ips)} 个无效 IP: {invalid_ips[:5]}"
-            f"{'...' if len(invalid_ips) > 5 else ''}")
-
     if not valid_ips:
         print("错误: 未解析到有效 IP 地址")
         return None
