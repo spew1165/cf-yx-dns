@@ -79,6 +79,27 @@ def _is_valid_ip(ip_str):
         return False
 
 
+def _get_ip_type(ip_str):
+    """
+    获取 IP 地址类型
+
+    Args:
+        ip_str: IP 地址字符串
+
+    Returns:
+        str: 'A' 表示 IPv4，'AAAA' 表示 IPv6，None 表示无效
+    """
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        if isinstance(ip, ipaddress.IPv4Address):
+            return 'A'
+        elif isinstance(ip, ipaddress.IPv6Address):
+            return 'AAAA'
+    except ValueError:
+        pass
+    return None
+
+
 def _extract_potential_ips(text):
     """
     从文本中提取可能的 IP 地址候选（包括 HTML 页面）
@@ -91,22 +112,29 @@ def _extract_potential_ips(text):
     Returns:
         list: IP 地址候选列表
     """
-    # 方法1: 使用正则提取 IPv4 和 IPv6 候选
     candidates = []
 
     # IPv4 正则（宽松匹配）
     ipv4_pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
     candidates.extend(re.findall(ipv4_pattern, text))
 
-    # 为了更好的 IPv6 支持，先尝试传统分割法，
-    # 再用正则作为补充
+    # IPv6 提取：处理带方括号和注释的格式
+    # 例如: [2606:4700:0:9623:8f54:b235:2eb0:82a0]#CF-IPv6_IPDB_1
+    # 或: [2606:4700::2df7:23e0:8908:4752]#CF-IPv6_IPDB_2
+    ipv6_bracketed = r'\[([0-9a-fA-F:]+)\]'
+    bracketed_matches = re.findall(ipv6_bracketed, text)
+    candidates.extend(bracketed_matches)
+
+    # 同时处理带冒号但可能没有方括号的 IPv6（向后兼容）
     if ',' in text or '\n' in text:
         normalized = text.replace('\n', ',')
         split_candidates = [x.strip() for x in normalized.split(',') if x.strip()]
-        # 补充正则没匹配到的候选（主要是完整 IPv6）
         for candidate in split_candidates:
             if ':' in candidate and candidate not in candidates:
-                candidates.append(candidate)
+                # 清理 IPv6 地址：去除方括号和注释
+                cleaned = _clean_ip_address(candidate)
+                if cleaned and cleaned not in candidates:
+                    candidates.append(cleaned)
 
     # 去重但保持顺序
     seen = set()
@@ -115,10 +143,41 @@ def _extract_potential_ips(text):
         if candidate not in seen:
             seen.add(candidate)
             unique_candidates.append(candidate)
-    print(f"原始候选 IP 数量: {len(candidates)}")
-    for index, candidate in enumerate(unique_candidates):
-        print(f"{index}: {candidate}")
+
     return unique_candidates
+
+
+def _clean_ip_address(ip_str):
+    """
+    清理 IP 地址字符串，去除方括号、注释等杂质
+
+    Args:
+        ip_str: 原始 IP 字符串
+
+    Returns:
+        str: 清理后的 IP 地址，无效返回 None
+    """
+    if not ip_str:
+        return None
+
+    cleaned = ip_str.strip()
+
+    # 先去除注释（# 及其后面的内容），因为注释可能在方括号外
+    if '#' in cleaned:
+        cleaned = cleaned.split('#')[0].strip()
+
+    # 再去除方括号
+    if cleaned.startswith('[') and cleaned.endswith(']'):
+        cleaned = cleaned[1:-1]
+
+    # 再次去除首尾空白
+    cleaned = cleaned.strip()
+
+    # 如果清理后为空或包含空白，则无效
+    if not cleaned or ' ' in cleaned:
+        return None
+
+    return cleaned
 
 
 def parse_ip_addresses(ip_str):
@@ -230,20 +289,25 @@ def add_dns_record(name, cf_ip):
         api_token=CF_API_TOKEN,
     )
 
+    ip_type = _get_ip_type(cf_ip)
+    if not ip_type:
+        print(f"错误: 无效的 IP 地址: {cf_ip}")
+        return f"ip:{cf_ip} 解析 {name} 失败 - 无效 IP 地址"
+
     record_response = client.dns.records.create(
         zone_id=CF_ZONE_ID,
         name=name,
         content=cf_ip,
         ttl=3600,
-        type="A",
+        type=ip_type,
         comment=f"{current_time}",
     )
     if record_response:
         print(f"dns add success: ---- Time: {current_time} ---- ip：{cf_ip}")
-        return f"ip:{cf_ip} 解析 {name} 成功\n"
+        return f"ip:{cf_ip} 解析 {name} 成功"
     else:
         print(f"dns add ERROR: ---- Time: {current_time} ---- ip：{cf_ip} ---- MESSAGE: {record_response.errors}")
-        return f"ip:{cf_ip} 解析 {name} 失败\n"
+        return f"ip:{cf_ip} 解析 {name} 失败"
 
 def del_dns_record(record_id):
     """
@@ -333,23 +397,23 @@ def main():
     for index, ip_address in enumerate(ip_addresses):
         print(f"{index}: {ip_address}")
 
-    # # 获取 DNS 记录
-    # dns_records = get_dns_records(CF_DNS_NAME) or []
-    # # 更新 DNS 记录
-    # push_plus_content = []
-    # # 删除之前存在的 DNS 记录
-    # for index, ip_address in enumerate(dns_records):
-    #     dns = del_dns_record(dns_records[index]['id'])
+    # 获取 DNS 记录
+    dns_records = get_dns_records(CF_DNS_NAME) or []
+    # 更新 DNS 记录
+    push_plus_content = []
+    # 删除之前存在的 DNS 记录
+    for index, ip_address in enumerate(dns_records):
+        dns = del_dns_record(dns_records[index]['id'])
 
-    # # 新增 新获取的 DNS 记录
-    # for index, ip_address in enumerate(ip_addresses):
-    #     dns = add_dns_record(CF_DNS_NAME, ip_address)
-    #     push_plus_content.append(dns)
+    # 新增 新获取的 DNS 记录
+    for index, ip_address in enumerate(ip_addresses):
+        dns = add_dns_record(CF_DNS_NAME, ip_address)
+        push_plus_content.append(dns)
 
-    # # 发送推送
-    # if push_plus_content:
-    #     print(push_plus_content)
-    #     push_plus('\n'.join(push_plus_content))
+    # 发送推送
+    if push_plus_content:
+        print(push_plus_content)
+        push_plus('\n'.join(push_plus_content))
 
 if __name__ == '__main__':
     main()
