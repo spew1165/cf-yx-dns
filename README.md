@@ -1,10 +1,10 @@
-# cf-yx
+# cf-yx-dns
 
 Cloudflare DNS 优选 IP 自动更新工具
 
 ## 项目概述
 
-cf-yx 是一个用于自动获取 Cloudflare 优选 IP 并更新 DNS 记录的 Python 工具。通过定时任务自动执行，帮助用户快速将优质 IP 地址同步到 Cloudflare DNS，实现网络访问优化。
+cf-yx-dns 是一个用于自动获取 Cloudflare 优选 IP 并更新 DNS 记录的 Python 工具。通过定时任务自动执行，帮助用户快速将优质 IP 地址同步到 Cloudflare DNS，实现网络访问优化。
 
 ## 核心功能
 
@@ -26,7 +26,7 @@ cf-yx 是一个用于自动获取 Cloudflare 优选 IP 并更新 DNS 记录的 P
 ## 项目结构
 
 ```text
-cf-yx/
+/
 ├── .github/
 │   └── workflows/
 │       ├── dns_cf.yml      # DNS 更新工作流（每6小时执行）
@@ -52,8 +52,8 @@ cf-yx/
 
 ```bash
 # 克隆项目
-git clone https://github.com/opal1237/cf-yx.git
-cd cf-yx
+git clone https://github.com/opal1237/cf-yx-dns.git
+cd cf-yx-dns
 
 # 安装依赖
 uv sync --locked --all-extras --dev

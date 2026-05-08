@@ -1,7 +1,7 @@
 [project]
-name = "cf-yx"
+name = "cf-yx-dns"
 version = "0.1.0"
-description = "Add your description here"
+description = "Cloudflare DNS 优选 IP 自动更新dns工具"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [

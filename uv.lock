@@ -33,7 +33,7 @@ wheels = [
 ]
 
 [[package]]
-name = "cf-yx"
+name = "cf-yx-dns"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
