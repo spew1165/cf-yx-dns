@@ -203,25 +203,6 @@ uv run src/dnscf.py --help
 
 欢迎提交 Issue 和 Pull Request。
 
-### 提交规范
-
-提交信息格式：`<type>(<scope>): <subject>`
-
-- `feat`: 新功能
-- `fix`: Bug 修复
-- `docs`: 文档更新
-- `refactor`: 重构
-- `test`: 测试
-- `chore`: 构建/依赖调整
-
-示例：
-
-```text
-feat(dns): 新增 IPv6 支持
-fix(parser): 修复 IP 解析异常
-docs(readme): 更新安装说明
-```
-
 ### 开发环境
 
 ```bash
@@ -243,3 +224,7 @@ uv run black src/
 
 - [Cloudflare](https://www.cloudflare.com/) - DNS 服务提供商
 - [PushPlus](https://www.pushplus.plus/) - 消息推送服务
+
+## Star History
+
+![Star History Chart](https://api.star-history.com/svg?repos=opal1237/cf-yx-dns&type=Timeline)
