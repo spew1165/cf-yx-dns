@@ -304,7 +304,7 @@ def add_dns_record(name, cf_ip):
         zone_id=CF_ZONE_ID,
         name=name,
         content=cf_ip,
-        ttl=600,
+        ttl=180,
         type=ip_type,
         comment=f"{current_time}",
     )
